@@ -9,11 +9,20 @@ set(CMAKE_CXX_STANDARD 17)
 file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/game/src/*.cpp")
 file(GLOB_RECURSE PLATFORM_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/platform/src/*.cpp")
 
+add_subdirectory(thirdparty/glm)
+add_subdirectory(thirdparty/stb_image)
 
 add_executable(noNew ${GAME_SOURCES} ${PLATFORM_SOURCES})
+
+target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC RESOURCES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/resources/") # This is useful to get an ASSETS_PATH in your IDE during development but you should comment this if you compile a release version and uncomment the next line
+#target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC RESOURCES_PATH="./resources/") # Uncomment this line to setup the ASSETS_PATH macro to the final assets directory when you share the game
+
 target_include_directories(noNew PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/game/include") #add header file
 target_include_directories(noNew PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/platform/include") #add header file
 remove_definitions(-DUNICODE) #remove unicode
+
+
+target_link_libraries(noNew PRIVATE glm stb_image)
 
 
 

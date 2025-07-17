@@ -2,6 +2,10 @@
 #include <iostream>
 #include <Windows.h>
 #include <memoryStuff.h>
+#include <stb_image/stb_image.h>
+#include <renderer.h>
+#include <camera.h>
+#include <OBJ_Loader.h>
 
 struct GameData 
 {
@@ -9,19 +13,39 @@ struct GameData
 	int positionY = 0;
 	int fpsCounter = 0;
 	float timer = 0;
+
+	Renderer renderer;
+
 };
+
 static GameData data;
+std::vector<float> zBuffer; //todo remove
+objl::Loader model;
+gl3d::Camera camera;
 
 bool initGameplay()
 {
-
 	data = {};
+
+
+	model.LoadFile(RESOURCES_PATH "african_head.obj");
+
+	stbi_set_flip_vertically_on_load(true);
+	data.renderer.texture.data = stbi_load(RESOURCES_PATH "african_head_diffuse.tga",
+		&data.renderer.texture.w, &data.renderer.texture.h, nullptr, 3);
+
+
+
 	return true;
 }
 
 bool gameplayFrame(float deltaTime, 
 	int w, int h, Input &input, GameWindowBuffer &gameWindowBuffer)
 {
+
+	data.renderer.updateWindowMetrics(w, h);
+	data.renderer.updateWindowBuffer(&gameWindowBuffer);
+	data.renderer.clearDepth();
 
 	//fps counter
 	//Sleep(1);
@@ -48,11 +72,152 @@ bool gameplayFrame(float deltaTime,
 	//	}
 
 
-	for (int i = 0; i < gameWindowBuffer.w; i++)
-		for (int j = 0; j < gameWindowBuffer.h; j++)
+	//for (int i = 0; i < gameWindowBuffer.w; i++)
+	//	for (int j = 0; j < gameWindowBuffer.h; j++)
+	//	{
+	//		gameWindowBuffer.drawAtSafe(i, j, i%256, j%256, (i*j)%256);
+	//	}
+
+
+	zBuffer.resize(w * h);
+	for (auto &i : zBuffer)
+	{
+		i = INFINITY;
+	}
+
+#pragma region camera
+
+	float speed = 4 * deltaTime;
+
+	glm::vec3 dir = {};
+	if (input.keyBoard[Button::W].held)
+	{
+		dir.z -= speed;
+	}
+	if (input.keyBoard[Button::S].held)
+	{
+		dir.z += speed;
+	}
+	if (input.keyBoard[Button::A].held)
+	{
+		dir.x -= speed;
+	}
+	if (input.keyBoard[Button::D].held)
+	{
+		dir.x += speed;
+	}
+
+	if (input.keyBoard[Button::Q].held)
+	{
+		dir.y -= speed;
+	}
+	if (input.keyBoard[Button::E].held)
+	{
+		dir.y += speed;
+	}
+
+	camera.moveFPS(dir);
+
+	{
+		static glm::dvec2 lastMousePos = {};
+		if (input.rMouseButton.held)
 		{
-			gameWindowBuffer.drawAtSafe(i, j, i%256, j%256, (i*j)%256);
+			glm::dvec2 currentMousePos = {};
+			currentMousePos.x = input.cursorX;
+			currentMousePos.y = input.cursorY;
+
+			float speed = 0.8f;
+
+			glm::vec2 delta = lastMousePos - currentMousePos;
+			delta *= speed * deltaTime;
+
+			camera.rotateCamera(delta);
+
+			lastMousePos = currentMousePos;
 		}
+		else
+		{
+			lastMousePos.x = input.cursorX;
+			lastMousePos.y = input.cursorY;
+
+		}
+	}
+
+	camera.aspectRatio = (float)w / h;
+
+#pragma endregion
+
+
+
+	glm::vec3 light_dir(0, 0, -1);
+
+
+	glm::mat4 projMat = camera.getProjectionMatrix() * camera.getWorldToViewMatrix();
+
+	static int counter = 500;
+
+	for (int i = 0; i < model.LoadedIndices.size() / 3; i++)
+	{
+		std::vector<int> face = {(int)model.LoadedIndices[i * 3], (int)model.LoadedIndices[i * 3 + 1], (int)model.LoadedIndices[i * 3] + 2};
+		glm::vec3 screen_coords[3];
+		glm::vec3 world_coords[3];
+		glm::vec4 projected_coords[3];
+		glm::vec2 textureUVs[3];
+
+		for (int j = 0; j < 3; j++)
+		{
+			auto v = model.LoadedVertices[face[j]];
+			v.Position.Z -= 1.5;
+
+			screen_coords[j] = glm::vec3((v.Position.X + 1.f) * w / 2.f, (v.Position.Y + 1.f) * h / 2.f, v.Position.Z);
+			screen_coords[j].x = floor(screen_coords[j].x);
+			screen_coords[j].y = floor(screen_coords[j].y);
+			world_coords[j] = {v.Position.X, v.Position.Y, v.Position.Z};
+
+			textureUVs[j].x = v.TextureCoordinate.X;
+			textureUVs[j].y = v.TextureCoordinate.Y;
+
+			projected_coords[j] = glm::vec4(world_coords[j], 1);
+
+			projected_coords[j] = projMat * projected_coords[j];
+
+		}
+
+
+		//if (intensity > 0)
+		//{
+		//	triangle2(screen_coords[0], screen_coords[1], screen_coords[2],
+		//		glm::vec3(intensity * 255, intensity * 255, intensity * 255),
+		//		textureUVs[0], textureUVs[1], textureUVs[2] );
+		//
+		//}else
+		//{
+		//	//triangle(screen_coords[0], screen_coords[1], screen_coords[2], glm::vec3(0));
+		//}
+
+		glm::vec3 n = glm::cross((world_coords[2] - world_coords[0]), (world_coords[1] - world_coords[0]));
+		//Vec3f n = (world_coords[1] - world_coords[0]) ^ (world_coords[2] - world_coords[0]);
+		n = glm::normalize(n);
+		float intensity = glm::clamp(glm::dot(n, light_dir), 0.f, 1.f);
+		//if(intensity > 0)
+		{
+
+			data.renderer.clipAndRenderTriangleInClipSpace(projected_coords[0], projected_coords[1], projected_coords[2],
+				textureUVs[0], textureUVs[1], textureUVs[2],
+				glm::vec3(intensity));
+
+			//mem->renderer.renderLineClipSpace(projected_coords[0], projected_coords[1], glm::vec3(1.f));
+			//mem->renderer.renderLineClipSpace(projected_coords[1], projected_coords[2], glm::vec3(1.f));
+			//mem->renderer.renderLineClipSpace(projected_coords[2], projected_coords[0], glm::vec3(1.f));
+
+		}
+
+
+		//for(int i=0;i<3;i++)
+		//line(Vec2i(screen_coords[i].x, screen_coords[i].y), Vec2i(screen_coords[(i+1)%3].x, screen_coords[(i + 1) % 3].y), {255,255,255});
+	}
+
+
 
 
 

@@ -4,6 +4,7 @@
 #include <gameLogic.h>
 #include <chrono>
 #include <gameWindowBuffer.h>
+#include <freeListAllocator.h>
 
 struct WindowStuff
 {
@@ -12,6 +13,7 @@ struct WindowStuff
 
 	BITMAPINFO bitmapInfo = {};
 	GameWindowBuffer gameWindowBuffer = {};
+
 };
 
 
@@ -136,6 +138,9 @@ int main()
 	WindowStuff windowStuff;
 	windowStuffGlobal = &windowStuff;
 
+	char allocatorMemory[ALLOCATOR_BUFFER_MEMORY] = {};
+	FreeListAllocator allocator;
+	allocator.init(allocatorMemory, sizeof(allocatorMemory));
 
 #pragma region create window stuff
 
@@ -166,7 +171,7 @@ int main()
 
 #pragma endregion
 
-	if (!initGameplay()) { return 1; };
+	if (!initGameplay(allocator)) { return 1; };
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
@@ -288,7 +293,8 @@ int main()
 		int width = rect.right - rect.left;
 		int height = rect.bottom - rect.top;
 
-		if (!gameplayFrame(augmentedDeltaTime, width, height, windowStuff.input, windowStuff.gameWindowBuffer))
+		if (!gameplayFrame(augmentedDeltaTime, width/2, height/2, windowStuff.input, windowStuff.gameWindowBuffer,
+			allocator))
 		{
 			windowStuff.running = false;
 		}

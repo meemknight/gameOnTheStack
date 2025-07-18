@@ -19,11 +19,10 @@ struct GameData
 };
 
 static GameData data;
-std::vector<float> zBuffer; //todo remove
 objl::Loader model;
 gl3d::Camera camera;
 
-bool initGameplay()
+bool initGameplay(FreeListAllocator &allocator)
 {
 	data = {};
 
@@ -41,7 +40,7 @@ bool initGameplay()
 }
 
 bool gameplayFrame(float deltaTime, 
-	int w, int h, Input &input, GameWindowBuffer &gameWindowBuffer)
+	int w, int h, Input &input, GameWindowBuffer &gameWindowBuffer, FreeListAllocator &allocator)
 {
 
 	data.renderer.updateWindowMetrics(w, h);
@@ -55,10 +54,10 @@ bool gameplayFrame(float deltaTime,
 	if (data.timer > 1)
 	{
 		data.timer -= 1;
-		std::cout << "FPS: " << data.fpsCounter << '\n';
+		//std::cout << "FPS: " << data.fpsCounter << '\n';
 		data.fpsCounter = 0;
 
-		//printStackUsage();
+		printStackUsage();
 	}
 
 	//clear screen
@@ -79,12 +78,6 @@ bool gameplayFrame(float deltaTime,
 	//		gameWindowBuffer.drawAtSafe(i, j, i%256, j%256, (i*j)%256);
 	//	}
 
-
-	zBuffer.resize(w * h);
-	for (auto &i : zBuffer)
-	{
-		i = INFINITY;
-	}
 
 #pragma region camera
 

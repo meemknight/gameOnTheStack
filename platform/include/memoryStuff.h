@@ -66,5 +66,6 @@ inline uint16_t packRGB565(unsigned char r, unsigned char g, unsigned char b)
 }
 
 #define SCREEN_BUFFER_MEMORY KB(290)
+#define ALLOCATOR_BUFFER_MEMORY KB(100)
 
 

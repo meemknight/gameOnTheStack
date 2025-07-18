@@ -69,18 +69,13 @@ void Renderer::updateWindowMetrics(int w, int h)
 	if (this->w == w && this->h == h) { return; }
 
 	this->w = w; this->h = h;
-	zBuffer.clear();
-	zBuffer.resize(w * h);
 
 
 }
 
 void Renderer::clearDepth()
 {
-	for (auto& i : zBuffer)
-	{
-		i = INFINITY;
-	}
+	windowBuffer->clearZ();
 }
 
 //todo move this to a stage before
@@ -99,7 +94,7 @@ auto depthCalculation = [](float z)->float
 	return val;
 };
 
-
+/*
 void Renderer::renderTriangleInClipSpace(glm::vec3 T0, glm::vec3 T1, glm::vec3 T2,
 	glm::vec2 textureUV0, glm::vec2 textureUV1, glm::vec2 textureUV2,
 	glm::vec3 color)
@@ -162,9 +157,9 @@ void Renderer::renderTriangleInClipSpace(glm::vec3 T0, glm::vec3 T1, glm::vec3 T
 			//float light = color.r / 255.f;
 			//float light = 1;
 
-			if (depth < zBuffer[x + y * w] && depth >= 0 && depth <= 1) 
+			if (depth < windowBuffer->getDepthUnsafe(x, y) && depth >= 0 && depth <= 1) 
 			{
-				zBuffer[x + y * w] = depth;
+				windowBuffer->setDepthUnsafe(x, y, depth);
 				//windowBuffer->drawAt(x, y, r * light, g * light, b * light);
 				windowBuffer->drawAtUnsafe(x, y, color.r * r, color.g * g, color.b * b);
 			};
@@ -173,6 +168,7 @@ void Renderer::renderTriangleInClipSpace(glm::vec3 T0, glm::vec3 T1, glm::vec3 T
 	}
 
 }
+*/
 
 void Renderer::clipAndRenderTriangleInClipSpace(glm::vec4 T0, glm::vec4 T1, glm::vec4 T2,
 	glm::vec2 UV0, glm::vec2 UV1, glm::vec2 UV2, glm::vec3 color)
@@ -310,7 +306,8 @@ void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, gl
 
 			float z = (1 - u - v) * z0 + u * z1 + v * z2; //trilinear interpolation
 			float depth = z;
-			bool passDepth = (bool(depth >= 0) && bool(depth <= 1) && bool(depth < zBuffer[x + y * w]));
+			bool passDepth = (bool(depth >= 0) && bool(depth <= 1) && bool(depth < windowBuffer->
+				getDepthUnsafe(x, y)) );
 
 			if (!passDepth) { continue; }
 
@@ -338,10 +335,12 @@ void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, gl
 
 			{
 
-				float stub = 0;
-				float *zBufferStub[2] = {&stub, &zBuffer[0]};
+				//float stub = 0;
+				//float *zBufferStub[2] = {&stub, &zBuffer[0]};
 
-				zBufferStub[passDepth][(x + y * (int)w)*passDepth] = depth;
+				windowBuffer->setDepthUnsafe(x, y, depth);
+
+				//zBufferStub[passDepth][(x + y * (int)w)*passDepth] = depth;
 
 				//windowBuffer->drawAt(x, y, r * light, g * light, b * light);
 				windowBuffer->drawAtUnsafeConditionalSafe(x, h-y-1, color.r * r, color.g * g, color.b * b, true);

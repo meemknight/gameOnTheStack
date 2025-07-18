@@ -18,7 +18,6 @@ struct Renderer
 	float w = 0;  //todo remove
 	float h = 0;
 	GameWindowBuffer *windowBuffer;
-	std::vector<float> zBuffer;
 	CpuTexture texture;
 
 	Renderer() {};

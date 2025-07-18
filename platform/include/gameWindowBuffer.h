@@ -1,12 +1,14 @@
 #pragma once
 #include <Windows.h>
 #include "memoryStuff.h"
-
+#include <glm/glm.hpp>
 
 
 struct GameWindowBuffer
 {
 	uint16_t memory[SCREEN_BUFFER_MEMORY / 2];
+	uint16_t zBuffer[SCREEN_BUFFER_MEMORY / 2];
+
 	int w = 0;
 	int h = 0;
 
@@ -47,6 +49,29 @@ struct GameWindowBuffer
 		for (int y = 0; y < h; ++y)
 			for (int x = 0; x < w; ++x)
 				memory[x + y * w] = color;
+	}
+
+	void clearZ()
+	{
+		for (int y = 0; y < h; ++y)
+			for (int x = 0; x < w; ++x)
+			{
+				zBuffer[x + y * w] = UINT16_MAX;
+			}
+	}
+
+	float getDepthUnsafe(int x, int y)
+	{
+		return zBuffer[x + y * w] / (float)UINT16_MAX;
+	}
+
+	void setDepthUnsafe(int x, int y, float d)
+	{
+		d = glm::clamp(d, 0.f, 1.f);
+
+		if (x >= w || y >= h) { return; }
+
+		zBuffer[x + y * w] = d * UINT16_MAX;
 	}
 };
 

@@ -7,8 +7,8 @@
 
 struct CpuTexture
 {
-	int w, h;
-	const unsigned char* data;
+	int w = 0, h = 0;
+	const unsigned char* data = 0;
 };
 
 struct GameWindowBuffer;

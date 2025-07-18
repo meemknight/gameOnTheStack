@@ -5,6 +5,13 @@
 #undef min
 #undef max
 
+#include <cmath>  // for std::isfinite
+
+bool isFiniteVec(const glm::vec3 &v)
+{
+	return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+}
+
 template<class T>
 T min(T a, T b, T c)
 {
@@ -167,6 +174,92 @@ void Renderer::renderTriangleInClipSpace(glm::vec3 T0, glm::vec3 T1, glm::vec3 T
 
 }
 
+void Renderer::clipAndRenderTriangleInClipSpace(glm::vec4 T0, glm::vec4 T1, glm::vec4 T2,
+	glm::vec2 UV0, glm::vec2 UV1, glm::vec2 UV2, glm::vec3 color)
+{
+	struct Vertex
+	{
+		glm::vec4 pos;
+		glm::vec2 uv;
+	};
+
+	// The near plane in clip space: z + w >= 0
+	auto isInside = [](const glm::vec4 &v)
+	{
+		return v.z + v.w >= 0.0f;
+	};
+
+	auto interpolate = [](const Vertex &a, const Vertex &b) -> Vertex
+	{
+		float tA = a.pos.z + a.pos.w;
+		float tB = b.pos.z + b.pos.w;
+		float t = tA / (tA - tB); // intersection t on the edge ab
+
+		glm::vec4 pos = a.pos + t * (b.pos - a.pos);
+		glm::vec2 uv = a.uv + t * (b.uv - a.uv);
+		return {pos, uv};
+	};
+
+	Vertex inVerts[3] = {{T0, UV0}, {T1, UV1}, {T2, UV2}};
+	std::vector<Vertex> input = {inVerts[0], inVerts[1], inVerts[2]};
+	std::vector<Vertex> output;
+
+	// Sutherland–Hodgman style clipping against z + w >= 0
+	for (int i = 0; i < 3; ++i)
+	{
+		const Vertex &A = input[i];
+		const Vertex &B = input[(i + 1) % 3];
+
+		bool insideA = isInside(A.pos);
+		bool insideB = isInside(B.pos);
+
+		if (insideA && insideB)
+		{
+			// Both inside
+			output.push_back(B);
+		}
+		else if (insideA && !insideB)
+		{
+			// A in, B out -> add intersection
+			output.push_back(interpolate(A, B));
+		}
+		else if (!insideA && insideB)
+		{
+			// A out, B in -> add intersection and B
+			output.push_back(interpolate(A, B));
+			output.push_back(B);
+		}
+		// else: both out -> discard edge
+	}
+
+	if (output.size() < 3) return; // triangle fully clipped
+
+	// Triangulate the polygon back into triangles (fan-style)
+	const Vertex &v0 = output[0];
+	for (size_t i = 1; i + 1 < output.size(); ++i)
+	{
+		const Vertex &v1 = output[i];
+		const Vertex &v2 = output[i + 1];
+
+		glm::vec3 p0 = glm::vec3(v0.pos) / v0.pos.w;
+		glm::vec3 p1 = glm::vec3(v1.pos) / v1.pos.w;
+		glm::vec3 p2 = glm::vec3(v2.pos) / v2.pos.w;
+
+		if (!isFiniteVec(p0) || !isFiniteVec(p1) || !isFiniteVec(p2)) continue;
+
+		// Optional: backface culling here if desired
+		float area =
+			p0.x * p1.y - p0.y * p1.x +
+			p1.x * p2.y - p1.y * p2.x +
+			p2.x * p0.y - p2.y * p0.x;
+
+		if (area <= 0) continue;
+
+		renderTriangleInClipSpaceOptimized(p0, p1, p2,
+			v0.uv, v1.uv, v2.uv,
+			color);
+	}
+}
 
 
 void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, glm::vec3 T2,
@@ -176,14 +269,20 @@ void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, gl
 	glm::fvec2 clipMinF = {min(T0.x, T1.x, T2.x), min(T0.y, T1.y, T2.y)};
 	glm::fvec2 clipMaxF = {max(T0.x, T1.x, T2.x), max(T0.y, T1.y, T2.y)};
 
-	//clipMinF = glm::clamp(clipMinF, { -1,-1 }, { 1, 1 });
-	//clipMaxF = glm::clamp(clipMaxF, { -1,-1 }, { 1, 1 });
+	if (clipMaxF.x < -1 || clipMinF.x > 1 ||
+		clipMaxF.y < -1 || clipMinF.y > 1) return;
+
+	clipMinF = glm::clamp(clipMinF, { -1,-1 }, { 1, 1 });
+	clipMaxF = glm::clamp(clipMaxF, { -1,-1 }, { 1, 1 });
 
 	glm::ivec2 clipMin = toScreenCoords(clipMinF);
 	glm::ivec2 clipMax = toScreenCoords(clipMaxF);
 
 	clipMin = glm::clamp(clipMin, {0,0}, {w - 1 , h - 1});
 	clipMax = glm::clamp(clipMax, {0,0}, {w - 1 , h - 1});
+
+	int area = (clipMax.x - clipMin.x + 1) * (clipMax.y - clipMin.y + 1);
+	if (area > 5000 * 5000) return; // hard stop
 
 	//this are in -1 1 space
 	float z0 = T0.z;
@@ -209,6 +308,12 @@ void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, gl
 				continue;
 			}
 
+			float z = (1 - u - v) * z0 + u * z1 + v * z2; //trilinear interpolation
+			float depth = z;
+			bool passDepth = (bool(depth >= 0) && bool(depth <= 1) && bool(depth < zBuffer[x + y * w]));
+
+			if (!passDepth) { continue; }
+
 			glm::vec2 uvs[3] = {textureUV0, textureUV1, textureUV2};
 			float tu = (1 - u - v) * uvs[0].x + u * uvs[1].x + v * uvs[2].x;
 			float tv = (1 - u - v) * uvs[0].y + u * uvs[1].y + v * uvs[2].y;
@@ -224,16 +329,13 @@ void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, gl
 			unsigned char g = texture.data[(itu + itv * texture.w) * 3 + 1];
 			unsigned char b = texture.data[(itu + itv * texture.w) * 3 + 2];
 
-			float z = (1 - u - v) * z0 + u * z1 + v * z2; //trilinear interpolation
-			//float depth = depthCalculation(z);
-			float depth = z;
+
 			//if (depth <= -1) { continue; }
 			//todo clip behind camera
 
 			//float light = color.r / 255.f;
 			//float light = 1;
 
-			bool passDepth = (bool(depth >= 0) && bool(depth <= 1) && bool(depth < zBuffer[x + y * w]));
 			{
 
 				float stub = 0;
@@ -242,7 +344,7 @@ void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, gl
 				zBufferStub[passDepth][(x + y * (int)w)*passDepth] = depth;
 
 				//windowBuffer->drawAt(x, y, r * light, g * light, b * light);
-				windowBuffer->drawAtUnsafeConditionalSafe(x, y, color.r * r, color.g * g, color.b * b, passDepth);
+				windowBuffer->drawAtUnsafeConditionalSafe(x, h-y-1, color.r * r, color.g * g, color.b * b, true);
 			};
 
 		}
@@ -266,15 +368,30 @@ glm::ivec2 Renderer::toScreenCoords(glm::vec2 v)
 	return toScreenCoordsFloat(v);
 }
 
+//old version
+/*
 void Renderer::clipAndRenderTriangleInClipSpace(glm::vec4 T0, 
 	glm::vec4 T1, glm::vec4 T2, glm::vec2 textureUV0, 
 	glm::vec2 textureUV1, glm::vec2 textureUV2, glm::vec3 color)
 {
-	if (T0.w == 0 || T1.w == 0 || T2.w == 0) { return; }
+
+	auto isBadW = [](float w)
+	{
+		constexpr float MIN_W = 1e-4f;
+		return !std::isfinite(w) || std::abs(w) < MIN_W;
+	};
+
+	if (isBadW(T0.w) || isBadW(T1.w) || isBadW(T2.w)) return;
+
+	//discard triangles behind camera
+	if (T0.z < -T0.w && T1.z < -T1.w && T2.z < -T2.w)
+		return;
 
 	glm::vec3 t0 = glm::vec3(T0) / T0.w;
 	glm::vec3 t1 = glm::vec3(T1) / T1.w;
 	glm::vec3 t2 = glm::vec3(T2) / T2.w;
+
+	if (!isFiniteVec(t0) || !isFiniteVec(t1) || !isFiniteVec(t2)) return;
 
 #pragma region backface cull
 
@@ -293,8 +410,8 @@ void Renderer::clipAndRenderTriangleInClipSpace(glm::vec4 T0,
 	renderTriangleInClipSpaceOptimized(t0, t1, t2, textureUV0, textureUV1, textureUV2, color);
 
 
-
 }
+*/
 
 void Renderer::renderLineClipSpace(glm::vec2 p0, glm::vec2 p1, glm::vec3 color)
 {

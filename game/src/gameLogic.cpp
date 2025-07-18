@@ -34,6 +34,7 @@ bool initGameplay()
 	data.renderer.texture.data = stbi_load(RESOURCES_PATH "african_head_diffuse.tga",
 		&data.renderer.texture.w, &data.renderer.texture.h, nullptr, 3);
 
+	camera.position = {1,-0.1,1};
 
 
 	return true;
@@ -54,10 +55,10 @@ bool gameplayFrame(float deltaTime,
 	if (data.timer > 1)
 	{
 		data.timer -= 1;
-		//std::cout << "FPS: " << data.fpsCounter << '\n';
+		std::cout << "FPS: " << data.fpsCounter << '\n';
 		data.fpsCounter = 0;
 
-		printStackUsage();
+		//printStackUsage();
 	}
 
 	//clear screen
@@ -87,7 +88,7 @@ bool gameplayFrame(float deltaTime,
 
 #pragma region camera
 
-	float speed = 4 * deltaTime;
+	float speed = 1.2 * deltaTime;
 
 	glm::vec3 dir = {};
 	if (input.keyBoard[Button::W].held)
@@ -158,6 +159,8 @@ bool gameplayFrame(float deltaTime,
 
 	for (int i = 0; i < model.LoadedIndices.size() / 3; i++)
 	{
+		//i = 941;
+
 		std::vector<int> face = {(int)model.LoadedIndices[i * 3], (int)model.LoadedIndices[i * 3 + 1], (int)model.LoadedIndices[i * 3] + 2};
 		glm::vec3 screen_coords[3];
 		glm::vec3 world_coords[3];
@@ -167,6 +170,9 @@ bool gameplayFrame(float deltaTime,
 		for (int j = 0; j < 3; j++)
 		{
 			auto v = model.LoadedVertices[face[j]];
+			v.Position.X *= 2.f;
+			v.Position.Y *= 2.f;
+			v.Position.Z *= 2.f;
 			v.Position.Z -= 1.5;
 
 			screen_coords[j] = glm::vec3((v.Position.X + 1.f) * w / 2.f, (v.Position.Y + 1.f) * h / 2.f, v.Position.Z);
@@ -212,7 +218,8 @@ bool gameplayFrame(float deltaTime,
 
 		}
 
-
+		//if(i > 1000)
+		//break;
 		//for(int i=0;i<3;i++)
 		//line(Vec2i(screen_coords[i].x, screen_coords[i].y), Vec2i(screen_coords[(i+1)%3].x, screen_coords[(i + 1) % 3].y), {255,255,255});
 	}

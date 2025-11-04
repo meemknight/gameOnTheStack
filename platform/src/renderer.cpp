@@ -1,7 +1,10 @@
 #include "renderer.h"
 #include <glm/glm.hpp>
+#include <glm/common.hpp>  
+#include <glm/gtc/matrix_access.hpp>
 #include <algorithm>
 #include "gameWindowBuffer.h"
+
 #undef min
 #undef max
 
@@ -258,6 +261,28 @@ void Renderer::clipAndRenderTriangleInClipSpace(glm::vec4 T0, glm::vec4 T1, glm:
 	}
 }
 
+glm::vec3 applyDither(glm::vec3 color, glm::vec2 pixelPos, float ditherStrength, float ditherSize)
+{
+	// 4x4 Bayer matrix
+	const glm::mat4 bayer = glm::mat4(
+		0.0, 8.0, 2.0, 10.0,
+		12.0, 4.0, 14.0, 6.0,
+		3.0, 11.0, 1.0, 9.0,
+		15.0, 7.0, 13.0, 5.0
+	);
+
+	// Wrap coordinates within the 4x4 pattern
+	glm::vec2 modPos = glm::mod(pixelPos / ditherSize, 4.0f);
+	int x = static_cast<int>(modPos.x);
+	int y = static_cast<int>(modPos.y);
+
+	// Get Bayer value in range [-0.5, 0.5]
+	float d = (bayer[y][x] / 16.0f - 0.5f) * ditherStrength;
+
+	// Apply and clamp
+	glm::vec3 result = color + glm::vec3(d);
+	return glm::clamp(result, glm::vec3(0.0f), glm::vec3(1.0f));
+}
 
 void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, glm::vec3 T2,
 	glm::vec2 textureUV0, glm::vec2 textureUV1, glm::vec2 textureUV2,
@@ -356,6 +381,21 @@ void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, gl
 			//float light = color.r / 255.f;
 			//float light = 1;
 
+			glm::vec3 finalColor(color.r, color.g, color.b);
+
+			//finalColor *= 100;
+			//finalColor = glm::floor(finalColor);
+			//finalColor /= 100;
+
+			finalColor = applyDither(finalColor, {x, y}, 0.01, 2);
+
+			if (color.r > 0.3 && color.g > 0.3 && color.b > 0.3)
+			{
+				finalColor = glm::pow(finalColor, glm::vec3(0.3f));
+			}
+
+			finalColor *= glm::vec3(r,g,b);
+
 			{
 
 				//float stub = 0;
@@ -366,7 +406,7 @@ void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, gl
 				//zBufferStub[passDepth][(x + y * (int)w)*passDepth] = depth;
 
 				//windowBuffer->drawAt(x, y, r * light, g * light, b * light);
-				windowBuffer->drawAtUnsafeConditionalSafe(x, h-y-1, color.r * r, color.g * g, color.b * b, true);
+				windowBuffer->drawAtUnsafeConditionalSafe(x, h-y-1, finalColor.r, finalColor.g, finalColor.b, true);
 			};
 
 		}

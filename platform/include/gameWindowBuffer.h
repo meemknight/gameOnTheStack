@@ -32,6 +32,7 @@ struct GameWindowBuffer
 
 		if (condition)
 		{
+
 			memory[x + y * w] = packRGB565(r, g, b);
 		}
 	}

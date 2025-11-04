@@ -1,7 +1,9 @@
 #pragma once
+#define NOMINMAX
 #include <Windows.h>
 #include "memoryStuff.h"
 #include <glm/glm.hpp>
+#include <utility>
 
 
 struct GameWindowBuffer
@@ -60,18 +62,27 @@ struct GameWindowBuffer
 			}
 	}
 
-	float getDepthUnsafe(int x, int y)
+	float getDepthUnsafeAsFloat(int x, int y)
 	{
 		return zBuffer[x + y * w] / (float)UINT16_MAX;
+	}
+
+	uint16_t getDepthUnsafeAsUint(int x, int y)
+	{
+		return zBuffer[x + y * w];
 	}
 
 	void setDepthUnsafe(int x, int y, float d)
 	{
 		d = glm::clamp(d, 0.f, 1.f);
 
-		if (x >= w || y >= h) { return; }
+		//if (x >= w || y >= h) 
+		//{
+		//	int a = 0;
+		//	return; 
+		//}
 
-		zBuffer[x + y * w] = d * UINT16_MAX;
+		zBuffer[x + y * w] = std::min(int(d * UINT16_MAX), (int)UINT16_MAX);
 	}
 };
 

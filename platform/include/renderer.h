@@ -15,8 +15,8 @@ struct GameWindowBuffer;
 
 struct Renderer
 {
-	float w = 0;  //todo remove
-	float h = 0;
+	//float w = 0;  //todo remove
+	//float h = 0;
 	GameWindowBuffer *windowBuffer;
 	CpuTexture texture;
 

@@ -133,13 +133,38 @@ LRESULT windProc(HWND wind, UINT msg, WPARAM wp, LPARAM lp)
 
 
 
+
+FreeListAllocator allocator;
+
+void *operator new  (size_t count)
+{
+	return allocator.allocate(count);
+}
+
+void *operator new[](size_t count)
+{
+	return allocator.allocate(count);
+}
+
+void operator delete  (void *ptr)
+{
+	allocator.free(ptr);
+}
+
+void operator delete[](void *ptr)
+{
+	allocator.free(ptr);
+}
+
 int main()
 {
+
+
+
 	WindowStuff windowStuff;
 	windowStuffGlobal = &windowStuff;
 
 	char allocatorMemory[ALLOCATOR_BUFFER_MEMORY] = {};
-	FreeListAllocator allocator;
 	allocator.init(allocatorMemory, sizeof(allocatorMemory));
 
 #pragma region create window stuff

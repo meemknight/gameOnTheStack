@@ -66,9 +66,9 @@ inline void barycentric(glm::vec2 p, glm::vec2 p0, glm::vec2 p1, glm::vec2 p2, f
 
 void Renderer::updateWindowMetrics(int w, int h)
 {
-	if (this->w == w && this->h == h) { return; }
-
-	this->w = w; this->h = h;
+	//if (this->w == w && this->h == h) { return; }
+	//
+	//this->w = w; this->h = h;
 
 
 }
@@ -199,6 +199,7 @@ void Renderer::clipAndRenderTriangleInClipSpace(glm::vec4 T0, glm::vec4 T1, glm:
 	Vertex inVerts[3] = {{T0, UV0}, {T1, UV1}, {T2, UV2}};
 	std::vector<Vertex> input = {inVerts[0], inVerts[1], inVerts[2]};
 	std::vector<Vertex> output;
+	output.reserve(3*2);
 
 	// Sutherland–Hodgman style clipping against z + w >= 0
 	for (int i = 0; i < 3; ++i)
@@ -262,6 +263,10 @@ void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, gl
 	glm::vec2 textureUV0, glm::vec2 textureUV1, glm::vec2 textureUV2,
 	glm::vec3 color)
 {
+
+	int w = windowBuffer->w;
+	int h = windowBuffer->h;
+
 	glm::fvec2 clipMinF = {min(T0.x, T1.x, T2.x), min(T0.y, T1.y, T2.y)};
 	glm::fvec2 clipMaxF = {max(T0.x, T1.x, T2.x), max(T0.y, T1.y, T2.y)};
 
@@ -306,8 +311,23 @@ void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, gl
 
 			float z = (1 - u - v) * z0 + u * z1 + v * z2; //trilinear interpolation
 			float depth = z;
-			bool passDepth = (bool(depth >= 0) && bool(depth <= 1) && bool(depth < windowBuffer->
-				getDepthUnsafe(x, y)) );
+			bool passDepth = (bool(depth >= 0) && bool(depth <= 1) 
+				&& bool(std::min(int(depth * UINT16_MAX), (int)UINT16_MAX) 
+					<= windowBuffer->getDepthUnsafeAsUint(x, y)) );
+
+			//FOR DEBUG, you can remove
+			//if(bool(depth >= 0) && bool(depth <= 1))
+			//if (
+			//	!(std::max(int(depth * UINT16_MAX), (int)UINT16_MAX)
+			//	<= windowBuffer->getDepthUnsafeAsUint(x, y))
+			//	)
+			//{
+			//	int newDepth = depth * UINT16_MAX;
+			//	int oldDepth = windowBuffer->getDepthUnsafeAsUint(x, y);
+			//	int a = 0;
+			//	int a1 = 0;
+			//	int a2 = 0;
+			//}
 
 			if (!passDepth) { continue; }
 
@@ -322,10 +342,13 @@ void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, gl
 			tv *= texture.h;
 			int itu = floor(tu);
 			int itv = floor(tv);
-			unsigned char r = texture.data[(itu + itv * texture.w) * 3 + 0];
-			unsigned char g = texture.data[(itu + itv * texture.w) * 3 + 1];
-			unsigned char b = texture.data[(itu + itv * texture.w) * 3 + 2];
+			//unsigned char r = texture.data[(itu + itv * texture.w) * 3 + 0];
+			//unsigned char g = texture.data[(itu + itv * texture.w) * 3 + 1];
+			//unsigned char b = texture.data[(itu + itv * texture.w) * 3 + 2];
 
+			unsigned char r = 125;
+			unsigned char g = 125;
+			unsigned char b = 125;
 
 			//if (depth <= -1) { continue; }
 			//todo clip behind camera
@@ -354,6 +377,9 @@ void Renderer::renderTriangleInClipSpaceOptimized(glm::vec3 T0, glm::vec3 T1, gl
 
 glm::vec2 Renderer::toScreenCoordsFloat(glm::vec2 v)
 {
+	int w = windowBuffer->w;
+	int h = windowBuffer->h;
+
 	glm::vec2 sizes = { w, h };
 	v += glm::vec2{ 1.f,1.f };
 	v *= sizes;

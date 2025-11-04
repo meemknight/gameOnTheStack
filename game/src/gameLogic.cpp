@@ -6,6 +6,7 @@
 #include <renderer.h>
 #include <camera.h>
 #include <OBJ_Loader.h>
+#include <optional>
 
 struct GameData 
 {
@@ -19,21 +20,21 @@ struct GameData
 };
 
 static GameData data;
-objl::Loader model;
 gl3d::Camera camera;
+std::optional<objl::Loader> model;
 
 bool initGameplay(FreeListAllocator &allocator)
 {
 	data = {};
 
-
-	model.LoadFile(RESOURCES_PATH "african_head.obj");
+	model = objl::Loader{};
+	model->LoadFile(RESOURCES_PATH "plains.obj");
 
 	stbi_set_flip_vertically_on_load(true);
-	data.renderer.texture.data = stbi_load(RESOURCES_PATH "african_head_diffuse.tga",
-		&data.renderer.texture.w, &data.renderer.texture.h, nullptr, 3);
+	//data.renderer.texture.data = stbi_load(RESOURCES_PATH "african_head_diffuse.tga",
+	//	&data.renderer.texture.w, &data.renderer.texture.h, nullptr, 3);
 
-	camera.position = {1,-0.1,1};
+	camera.position = {1,0.4,1};
 
 
 	return true;
@@ -143,18 +144,20 @@ bool gameplayFrame(float deltaTime,
 
 
 
-	glm::vec3 light_dir(0, 0, -1);
+	glm::vec3 light_dir = glm::normalize(glm::vec3(0, -1, -0.2));
 
 
 	glm::mat4 projMat = camera.getProjectionMatrix() * camera.getWorldToViewMatrix();
 
-	static int counter = 500;
 
-	for (int i = 0; i < model.LoadedIndices.size() / 3; i++)
+
+
+	if(1)
+	for (int i = 0; i < model->LoadedIndices.size() / 3; i++)
 	{
 		//i = 941;
 
-		std::vector<int> face = {(int)model.LoadedIndices[i * 3], (int)model.LoadedIndices[i * 3 + 1], (int)model.LoadedIndices[i * 3] + 2};
+		std::vector<int> face = {(int)model->LoadedIndices[i * 3], (int)model->LoadedIndices[i * 3 + 1], (int)model->LoadedIndices[i * 3] + 2};
 		glm::vec3 screen_coords[3];
 		glm::vec3 world_coords[3];
 		glm::vec4 projected_coords[3];
@@ -162,7 +165,7 @@ bool gameplayFrame(float deltaTime,
 
 		for (int j = 0; j < 3; j++)
 		{
-			auto v = model.LoadedVertices[face[j]];
+			auto v = model->LoadedVertices[face[j]];
 			v.Position.X *= 2.f;
 			v.Position.Y *= 2.f;
 			v.Position.Z *= 2.f;
@@ -173,8 +176,8 @@ bool gameplayFrame(float deltaTime,
 			screen_coords[j].y = floor(screen_coords[j].y);
 			world_coords[j] = {v.Position.X, v.Position.Y, v.Position.Z};
 
-			textureUVs[j].x = v.TextureCoordinate.X;
-			textureUVs[j].y = v.TextureCoordinate.Y;
+			//ztextureUVs[j].x = v.TextureCoordinate.X;
+			//ztextureUVs[j].y = v.TextureCoordinate.Y;
 
 			projected_coords[j] = glm::vec4(world_coords[j], 1);
 
@@ -197,7 +200,7 @@ bool gameplayFrame(float deltaTime,
 		glm::vec3 n = glm::cross((world_coords[2] - world_coords[0]), (world_coords[1] - world_coords[0]));
 		//Vec3f n = (world_coords[1] - world_coords[0]) ^ (world_coords[2] - world_coords[0]);
 		n = glm::normalize(n);
-		float intensity = glm::clamp(glm::dot(n, light_dir), 0.f, 1.f);
+		float intensity = glm::clamp(glm::dot(n, light_dir), 0.1f, 1.f);
 		//if(intensity > 0)
 		{
 

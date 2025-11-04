@@ -156,8 +156,6 @@ namespace objl
 		// Normal Vector
 		Vector3 Normal;
 
-		// Texture Coordinate Vector
-		Vector2 TextureCoordinate;
 	};
 
 	struct Material
@@ -487,7 +485,7 @@ namespace objl
 	public:
 		// Default Constructor
 		Loader()
-		{
+ 		{
 
 		}
 		~Loader()
@@ -855,7 +853,7 @@ namespace objl
 				case 1: // P
 				{
 					vVert.Position = algorithm::getElement(iPositions, svert[0]);
-					vVert.TextureCoordinate = Vector2(0, 0);
+					//vVert.TextureCoordinate = Vector2(0, 0);
 					noNormal = true;
 					oVerts.push_back(vVert);
 					break;
@@ -863,7 +861,7 @@ namespace objl
 				case 2: // P/T
 				{
 					vVert.Position = algorithm::getElement(iPositions, svert[0]);
-					vVert.TextureCoordinate = algorithm::getElement(iTCoords, svert[1]);
+					//vVert.TextureCoordinate = algorithm::getElement(iTCoords, svert[1]);
 					noNormal = true;
 					oVerts.push_back(vVert);
 					break;
@@ -871,7 +869,7 @@ namespace objl
 				case 3: // P//N
 				{
 					vVert.Position = algorithm::getElement(iPositions, svert[0]);
-					vVert.TextureCoordinate = Vector2(0, 0);
+					//vVert.TextureCoordinate = Vector2(0, 0);
 					vVert.Normal = algorithm::getElement(iNormals, svert[2]);
 					oVerts.push_back(vVert);
 					break;
@@ -879,7 +877,7 @@ namespace objl
 				case 4: // P/T/N
 				{
 					vVert.Position = algorithm::getElement(iPositions, svert[0]);
-					vVert.TextureCoordinate = algorithm::getElement(iTCoords, svert[1]);
+					//vVert.TextureCoordinate = algorithm::getElement(iTCoords, svert[1]);
 					vVert.Normal = algorithm::getElement(iNormals, svert[2]);
 					oVerts.push_back(vVert);
 					break;

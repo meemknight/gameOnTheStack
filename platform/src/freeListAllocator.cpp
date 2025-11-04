@@ -298,6 +298,7 @@ void *FreeListAllocator::allocate(size_t size)
 				else
 				{
 					winAssertComment(0, "Allocator out of memory");
+					exit(0);
 				}
 
 			}

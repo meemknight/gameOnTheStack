@@ -74,6 +74,10 @@ struct FreeListAllocator
 	//you can allocate less than the largest biggest free memory because 16 bytes are reserved per block
 	void calculateMemoryMetrics(size_t &availableMemory, size_t &biggestBlock, int &freeBlocks);
 
+	size_t getMemorySize()
+	{
+		return size_t((char*)end - baseMemory);
+	}
 
 	//if this is false it will crash if it is out of memory
 	//if this is true it will return 0 when there is no more memory

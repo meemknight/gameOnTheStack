@@ -156,9 +156,10 @@ void operator delete[](void *ptr)
 	allocator.free(ptr);
 }
 
+
+
 int main()
 {
-
 
 
 	WindowStuff windowStuff;

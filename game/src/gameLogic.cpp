@@ -28,6 +28,7 @@ std::optional<objl::Loader> slender;
 
 bool initGameplay(FreeListAllocator &allocator)
 {
+
 	data = {};
 
 	ground = objl::Loader{};
@@ -175,6 +176,14 @@ bool gameplayFrame(float deltaTime,
 		data.fpsCounter = 0;
 
 		printStackUsage();
+		size_t availableMemory = 0;
+		size_t biggestBlock = 0;
+		int freeBlocks = 0;
+		allocator.calculateMemoryMetrics(availableMemory, biggestBlock, freeBlocks);
+
+		std::cout << "Custom allocator usage: " << (1.f - ((float)availableMemory / allocator.getMemorySize())) * 100 << "% -> "
+			<< (1.f - ((float)availableMemory / allocator.getMemorySize())) * 100 * 0.39 << "% of stack\n\n";
+
 	}
 
 	//clear screen
@@ -296,7 +305,11 @@ bool gameplayFrame(float deltaTime,
 		renderModel(*slender, w, h, newMat, light_dir);
 	}
 
-
+	//for (int i = 0; i < gameWindowBuffer.w; i++)
+	//	for (int j = 0; j < gameWindowBuffer.h; j++)
+	//	{
+	//		gameWindowBuffer.drawAtSafe(i, j, 205,205,205);
+	//	}
 
 
 	return true;
